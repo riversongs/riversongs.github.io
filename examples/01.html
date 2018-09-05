@@ -34,50 +34,105 @@
 	<body>
 		<canvas id="mycanvas" />
 		<script type="text/javascript">
+			// This would come from the scraper and would be the main input to
+			// the visualization. Each entry would be data for a particular
+			// gauge on the river.
+			var pointData = [
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.7,
+				0.5,
+				0.5,
+				0.5,
+				0.8,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+				0.5,
+			]
 
 			var dc;
-			var nbrPoints = 44;
-			var cycleLength = 60 * 3; // 3 minutes
+			var numPoints = 44;
 
 			// Global width / height
-			var gw = 800;
-			var gh = 800;
+			var gw = 1000;
+			var gh = 1000;
 
 			// Center coordinates
 			var cx = gw / 2;
 			var cy = gh / 2;
 
-			var startTime = (new Date()).getTime();
 			var PI = 3.1415927;
 			var PI2 = PI * 2;
-			var tines = [];
 			var lastSound = []; // Timestamp, in MS, of the last time sound `i` got played
+
+			// Line properties
+			var lineX = 0;
 
 			// Circle properties
 			var circleRadius = (gw / 2) * 0.95;
-			var speed = (PI2 * nbrPoints) / cycleLength;
 			var maxRad = (gw / 2 - circleRadius) * .75;
 			var minRad = maxRad * .2;
 
 			RefreshFrame = function () {
-				// Draw horizontal line from center to right edge
+				// Vertical line sweeping from right to left
 				dc.clearRect(0, 0, gw, gh);  // Clear the area, making it fully transparent
 				dc.lineWidth = 3;
 				dc.strokeStyle = '#333';
 				dc.beginPath();
-				dc.moveTo(cx, cy);
-				dc.lineTo(gw, cy);
+				if (lineX === gw) lineX = 0;
+				dc.moveTo(lineX, 0);
+				dc.lineTo(lineX, gh);
+				lineX++;
 				dc.stroke();
 
-				// Draw all the circles
+				// Circles
 				var ms = (new Date()).getTime();
-				var timer = (ms - startTime) * .001 * speed;  // Seconds since start * speed
-				for (var i = 0; i < nbrPoints; ++i) {
-					var r = (i + 1) / nbrPoints;
-					var a = timer * r;
-					var len = circleRadius * (1 + 1.0 / nbrPoints - r);
-					if (Math.floor(a / PI2) !== Math.floor(tines[i] / PI2)) {
-						// Point is on the horizontal line
+				for (var i = 0; i < numPoints; ++i) {
+					var r = (i + 1) / numPoints;
+					var data = pointData[i];
+
+					// Position / size
+					var x = r * gw;
+					var y = cy;
+					var radv = minRad + (maxRad - minRad) * data;
+					radv = Math.max((radv + 6) - 6 * (ms - lastSound[i]) / 500.0, radv);
+
+					if (Math.floor(x) === lineX) {  // x is a float while lineX is an int
+						// Point has intersected with line--play the point's sound
 						MIDI.noteOn(0, i + 21, 100, 0);      // 21 is the minimum value
 						MIDI.noteOn(0, i + 21 + 36, 100, 0); // Also play the note 3 octaves up
 						// Cut off reverb
@@ -85,14 +140,9 @@
 						MIDI.noteOff(0, i + 21 + 36, 0.1);
 						lastSound[i] = ms;
 					}
-					// Position / size
-					var x = (cx + Math.cos(a) * len);
-					var y = (cy + Math.sin(a) * len);
-					var radv = minRad + (maxRad - minRad) * (1 - r);
-					radv = Math.max((radv + 6) - 6 * (ms - lastSound[i]) / 500.0, radv);
 
 					// Color
-					var huev = r * 360;
+					var huev = (1 - data) * 360;
 					var satv = Math.round(100 * Math.min(1, (ms - lastSound[i]) / 1000.0));
 					var lumv = Math.round(100 * Math.max(0.5, 1 - (ms - lastSound[i]) / 1000.0));
 
@@ -101,7 +151,6 @@
 					dc.beginPath();
 					dc.arc(x, y, radv, 0, PI2, false);
 					dc.fill();
-					tines[i] = a;
 				}
 			};
 
@@ -121,14 +170,11 @@
 						canvas.height = gh;
 						dc = canvas.getContext('2d');  // CanvasRenderingContext2D
 
-						for (var i = 0; i < nbrPoints; ++i) {
-							if (i % 7 === 0) MIDI.noteOn(0, i + 21, 100, 0); // Initial chord
+						for (var i = 0; i < numPoints; ++i) {
 							lastSound[i] = 0;
-							tines[i] = 0;
 						}
 
-						startTime = (new Date()).getTime();
-						setInterval(RefreshFrame, 1000 / 30);
+						setInterval(RefreshFrame, 12);
 					}
 				});
 			};
