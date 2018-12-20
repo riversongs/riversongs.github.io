@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <!-- polyfill -->
+    <script src="../inc/shim/Base64.js" type="text/javascript"></script>
+    <script src="../inc/shim/Base64binary.js" type="text/javascript"></script>
+    <script src="../inc/shim/WebAudioAPI.js" type="text/javascript"></script>
+    <!-- midi.js package -->
+    <script src="../js/midi/audioDetect.js" type="text/javascript"></script>
+    <script src="../js/midi/gm.js" type="text/javascript"></script>
+    <script src="../js/midi/loader.js" type="text/javascript"></script>
+    <script src="../js/midi/plugin.audiotag.js" type="text/javascript"></script>
+    <script src="../js/midi/plugin.webaudio.js" type="text/javascript"></script>
+    <script src="../js/midi/plugin.webmidi.js" type="text/javascript"></script>
+    <!-- utils -->
+    <script src="../js/util/dom_request_xhr.js" type="text/javascript"></script>
+    <script
+      src="../js/util/dom_request_script.js"
+      type="text/javascript"
+    ></script>
+  </head>
+
+  <body>
+    <script type="text/javascript">
+      const annualValues = {
+        '07374525': 3433,
+        '07374000': 4142,
+        '07289000': 3708,
+        '07024175': 765,
+        '07022000': 30520,
+        '07010000': 57265,
+        '07020500': 27872,
+        '05587450': 30531,
+        '05474500': 51286,
+        '05420500': 53081,
+        '05416100': 1096,
+        '05411500': 2269,
+        '05389500': 27468,
+        '05288500': 31588,
+        '05261000': 4854,
+        '05242300': 11459
+      };
+
+      const usgsURL =
+        'https://waterservices.usgs.gov/nwis/dv/?format=json&sites=07374525,07374000,07290880,07289000,07024175,07022000,07020500,07010000,05587450,05474500,05420500,05416100,05411500,05389500,05288500,05261000,05242300&siteType=ST&siteStatus=all';
+
+      function httpGet(url) {
+        var xmlHttp = new XMLHttpRequest();
+        xmlHttp.open('GET', url, false);
+        xmlHttp.send(null);
+        return JSON.parse(xmlHttp.responseText);
+      }
+
+      const riverData = httpGet(usgsURL);
+
+      const riverGauges = riverData.value.timeSeries
+        .filter(
+          site =>
+            site.variable.variableDescription ===
+            'Discharge, cubic feet per second'
+        )
+        .map(site => ({
+          siteCode: site.sourceInfo.siteCode[0].value,
+          name: site.sourceInfo.siteName,
+          dischargeToday: site.values[0].value[0].value
+        }));
+
+      riverGauges.forEach(item => {
+        if (Object.keys(annualValues).includes(item.siteCode)) {
+          item['dischargeAnnual'] = annualValues[item.siteCode];
+        }
+        // Normalize to between 0-1
+        let dischargeDiff = item.dischargeToday / (2 * item.dischargeAnnual);
+        item['dischargeValue'] = dischargeDiff;
+      });
+
+      window.onload = function() {
+        console.log(riverGauges);
+        MIDI.loadPlugin({
+          soundfontUrl: './soundfont/',
+          instrument: 'acoustic_grand_piano',
+          onprogress: function(state, progress) {
+            console.log(state, progress);
+          },
+          onsuccess: function() {
+            var delay = 0; // play one note every quarter second
+            var note = 50; // the MIDI note
+            var velocity = 127; // how hard the note hits
+            // play the note
+            MIDI.setVolume(0, 127);
+            MIDI.noteOn(0, note, velocity, delay);
+            MIDI.noteOff(0, note, delay + 0.75);
+          }
+        });
+      };
+    </script>
+  </body>
+</html>
