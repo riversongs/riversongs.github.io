@@ -71,11 +71,21 @@
           item['dischargeAnnual'] = annualValues[item.siteCode];
         }
         // Normalize to between 0-1
-        let dischargeDiff = item.dischargeToday / (2 * item.dischargeAnnual);
-        item['dischargeValue'] = dischargeDiff;
+        let pitchValue = item.dischargeToday / item.dischargeAnnual;
+        {
+          pitchValue > 1
+            ? (pitchValue = 1 - 1 / pitchValue / 2)
+            : (pitchValue = pitchValue / 2);
+        }
+        item['pitchValue'] = pitchValue;
       });
 
       window.onload = function() {
+        function touchStarted() {
+          if (getAudioContext().state !== 'running') {
+            getAudioContext().resume();
+          }
+        }
         console.log(riverGauges);
         MIDI.loadPlugin({
           soundfontUrl: './soundfont/',
