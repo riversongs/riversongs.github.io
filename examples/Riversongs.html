@@ -23,6 +23,13 @@
 
   <body>
     <script type="text/javascript">
+      // Pitch to begin mapping sites to (48 = C3)
+      const keyboardStart = 48;
+      // Pitch to stop mapping sites to
+      const keyboardEnd = 60;
+      // Play actual song or modified song
+      const playType = 'actual';
+      // Mean site discharge values for 2018
       const annualValues = {
         '07374525': 3433,
         '07374000': 4142,
@@ -52,33 +59,63 @@
         return JSON.parse(xmlHttp.responseText);
       }
 
+      // Allow actual or modified playing of MIDI notes
+      function playMIDIStyle(note, type) {
+        let midiNote;
+        {
+          type === 'actual'
+            ? (midiNote = note)
+            : (midiNote = modifiedMIDI[note]);
+        }
+        return midiNote;
+      }
+
       const riverData = httpGet(usgsURL);
 
+      // Clean up USGS JSON data
       const riverGauges = riverData.value.timeSeries
         .filter(
           site =>
+            //Find only sites with discharge data
             site.variable.variableDescription ===
             'Discharge, cubic feet per second'
         )
-        .map(site => ({
+        .map((site, index) => ({
           siteCode: site.sourceInfo.siteCode[0].value,
           name: site.sourceInfo.siteName,
-          dischargeToday: site.values[0].value[0].value
+          dischargeToday: site.values[0].value[0].value,
+          midiActual: index + keyboardStart
         }));
 
       riverGauges.forEach(item => {
         if (Object.keys(annualValues).includes(item.siteCode)) {
+          // Add annual discharge numbers to riverGauges
           item['dischargeAnnual'] = annualValues[item.siteCode];
         }
-        // Normalize to between 0-1
-        let pitchValue = item.dischargeToday / item.dischargeAnnual;
+        // Normalize point data values to between 0-1
+        let pointValue = item.dischargeToday / item.dischargeAnnual;
         {
-          pitchValue > 1
-            ? (pitchValue = 1 - 1 / pitchValue / 2)
-            : (pitchValue = pitchValue / 2);
+          pointValue > 1
+            ? (pointValue = 1 - 1 / pointValue / 2)
+            : (pointValue = pointValue / 2);
         }
-        item['pitchValue'] = pitchValue;
+        item['pointValue'] = pointValue;
+        // Add midi note values (actual and changed) to object
+        let midiChanged;
+        if (pointValue > 0.7) {
+          item['midiChanged'] = item.midiActual + 1;
+        } else if (pointValue < 0.3) {
+          item['midiChanged'] = item.midiActual - 1;
+        } else {
+          item['midiChanged'] = item.midiActual;
+        }
       });
+
+      //Create object for MIDI value lookup
+      let modifiedMIDI = {};
+      riverGauges.forEach(
+        site => (modifiedMIDI[site.midiActual] = site.midiChanged)
+      );
 
       window.onload = function() {
         function touchStarted() {
@@ -86,7 +123,6 @@
             getAudioContext().resume();
           }
         }
-        console.log(riverGauges);
         MIDI.loadPlugin({
           soundfontUrl: './soundfont/',
           instrument: 'acoustic_grand_piano',
@@ -95,12 +131,73 @@
           },
           onsuccess: function() {
             var delay = 0; // play one note every quarter second
-            var note = 50; // the MIDI note
+            var note = 48; // the MIDI note
             var velocity = 127; // how hard the note hits
             // play the note
             MIDI.setVolume(0, 127);
-            MIDI.noteOn(0, note, velocity, delay);
-            MIDI.noteOff(0, note, delay + 0.75);
+
+            // Hardcoded song: Row, row, row your boat
+            // Row, row, row your boat
+            MIDI.noteOn(0, playMIDIStyle(48, playType), 40, 0);
+            MIDI.noteOff(0, playMIDIStyle(48, playType), 0.75);
+            MIDI.noteOn(0, playMIDIStyle(48, playType), 40, 1);
+            MIDI.noteOff(0, playMIDIStyle(48, playType), 1.75);
+            MIDI.noteOn(0, playMIDIStyle(48, playType), 40, 2);
+            MIDI.noteOff(0, playMIDIStyle(48, playType), 2.75);
+            MIDI.noteOn(0, playMIDIStyle(50, playType), 40, 2.75);
+            MIDI.noteOff(0, playMIDIStyle(50, playType), 2.9);
+            MIDI.noteOn(0, playMIDIStyle(52, playType), 40, 3);
+            MIDI.noteOff(0, playMIDIStyle(52, playType), 3.75);
+            // Gently down the stream
+            MIDI.noteOn(0, playMIDIStyle(52, playType), 40, 4);
+            MIDI.noteOff(0, playMIDIStyle(52, playType), 4.75);
+            MIDI.noteOn(0, playMIDIStyle(50, playType), 40, 4.75);
+            MIDI.noteOff(0, playMIDIStyle(50, playType), 5);
+            MIDI.noteOn(0, playMIDIStyle(52, playType), 40, 5);
+            MIDI.noteOff(0, playMIDIStyle(52, playType), 5.5);
+            MIDI.noteOn(0, playMIDIStyle(53, playType), 40, 5.75);
+            MIDI.noteOff(0, playMIDIStyle(53, playType), 5.9);
+            MIDI.noteOn(0, playMIDIStyle(55, playType), 40, 6);
+            MIDI.noteOff(0, playMIDIStyle(55, playType), 7.5);
+            // Merrily, merrily, merrily, merrily
+            MIDI.noteOn(0, playMIDIStyle(60, playType), 40, 8);
+            MIDI.noteOff(0, playMIDIStyle(60, playType), 8.33);
+            MIDI.noteOn(0, playMIDIStyle(60, playType), 40, 8.33);
+            MIDI.noteOff(0, playMIDIStyle(60, playType), 8.66);
+            MIDI.noteOn(0, playMIDIStyle(60, playType), 40, 8.66);
+            MIDI.noteOff(0, playMIDIStyle(60, playType), 8.99);
+
+            MIDI.noteOn(0, playMIDIStyle(55, playType), 40, 9);
+            MIDI.noteOff(0, playMIDIStyle(55, playType), 9.33);
+            MIDI.noteOn(0, playMIDIStyle(55, playType), 40, 9.33);
+            MIDI.noteOff(0, playMIDIStyle(55, playType), 9.66);
+            MIDI.noteOn(0, playMIDIStyle(55, playType), 40, 9.66);
+            MIDI.noteOff(0, playMIDIStyle(55, playType), 9.99);
+
+            MIDI.noteOn(0, playMIDIStyle(52, playType), 40, 10);
+            MIDI.noteOff(0, playMIDIStyle(52, playType), 10.33);
+            MIDI.noteOn(0, playMIDIStyle(52, playType), 40, 10.33);
+            MIDI.noteOff(0, playMIDIStyle(52, playType), 10.66);
+            MIDI.noteOn(0, playMIDIStyle(52, playType), 40, 10.66);
+            MIDI.noteOff(0, playMIDIStyle(52, playType), 10.99);
+
+            MIDI.noteOn(0, playMIDIStyle(48, playType), 40, 11);
+            MIDI.noteOff(0, playMIDIStyle(48, playType), 11.33);
+            MIDI.noteOn(0, playMIDIStyle(48, playType), 40, 11.33);
+            MIDI.noteOff(0, playMIDIStyle(48, playType), 11.66);
+            MIDI.noteOn(0, playMIDIStyle(48, playType), 40, 11.66);
+            MIDI.noteOff(0, playMIDIStyle(48, playType), 11.99);
+            // Life is but a dream
+            MIDI.noteOn(0, playMIDIStyle(55, playType), 40, 12);
+            MIDI.noteOff(0, playMIDIStyle(55, playType), 12.75);
+            MIDI.noteOn(0, playMIDIStyle(53, playType), 40, 12.75);
+            MIDI.noteOff(0, playMIDIStyle(53, playType), 13);
+            MIDI.noteOn(0, playMIDIStyle(52, playType), 40, 13);
+            MIDI.noteOff(0, playMIDIStyle(52, playType), 13.5);
+            MIDI.noteOn(0, playMIDIStyle(50, playType), 40, 13.75);
+            MIDI.noteOff(0, playMIDIStyle(50, playType), 14);
+            MIDI.noteOn(0, playMIDIStyle(48, playType), 40, 14);
+            MIDI.noteOff(0, playMIDIStyle(48, playType), 15.5);
           }
         });
       };

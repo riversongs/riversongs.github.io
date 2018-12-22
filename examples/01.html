@@ -110,7 +110,7 @@
 			RefreshFrame = function () {
 				// Vertical line sweeping from right to left
 				dc.clearRect(0, 0, gw, gh);  // Clear the area, making it fully transparent
-				dc.lineWidth = 3;
+				dc.lineWidth = 10;
 				dc.strokeStyle = '#333';
 				dc.beginPath();
 				if (lineX === gw) lineX = 0;
@@ -155,6 +155,11 @@
 			};
 
 			window.onload = function () {
+				function touchStarted() {
+					if (getAudioContext().state !== 'running') {
+						getAudioContext().resume();
+					}
+				}
 				MIDI.loader = new sketch.ui.Timer;
 				MIDI.loadPlugin({
 					soundfontUrl: "./soundfont/",
